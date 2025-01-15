@@ -1,6 +1,7 @@
 import time
 import os
-import asciichartpy
+import datetime as dt
+# import asciichartpy
 from colorama import Fore
 from colorama import Back
 from colorama import Style
@@ -8,6 +9,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from selenium.common.exceptions import NoSuchDriverException
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
@@ -15,6 +17,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver import ActionChains
 from selenium.webdriver import Keys
 import random
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
 def get_rate_from_url(driver):
     last_rate = driver.find_element(By.XPATH, "//div[@data-test='instrument-price-last']")
@@ -35,44 +39,65 @@ width = 50  # Width of the chart
 height = 10  # Optional, controls scaling
 history_uzs = []  # Store historical data
 history_usd = []
-max_points = 100  # Maximum number of points to display
+ts = [] # Time data
+max_points = 20  # Maximum number of points to display
 
-service = Service('/usr/bin/chromedriver')
 options = Options()
 options.add_argument("--headless")
 options.add_argument(f"--user-agent={random.choice(user_agents)}")
 
+fig = plt.figure()
+ax = fig.add_subplot(1, 1, 1)
+
 try:
+    service = Service('/usr/bin/chromedriver')
     driver = webdriver.Chrome(service=service, options=options)
     driver_two = webdriver.Chrome(service=service, options=options)
+except(NoSuchDriverException):
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=options)
+    driver_two = webdriver.Chrome(service=service, options=options)
+
+try:
 
     driver.get(uzs_to_rub_url)
     driver_two.get(usd_to_rub_url)
 
-    while True:
-        uzs_to_rub = get_rate_from_url(driver)
-        if uzs_to_rub > 1:
-            uzs_to_rub /= 10000
+    def animate(i, ts, history_usd):
+        ts.append(dt.datetime.now().strftime('%H:%M:%S'))
+        ts = ts[-max_points:]
+        # uzs_to_rub = get_rate_from_url(driver)
+        # if uzs_to_rub > 1:
+        #     uzs_to_rub /= 10000
 
-        rub_to_uzs = round(1 / uzs_to_rub, 2)
-        history_uzs.append(rub_to_uzs)
+        # rub_to_uzs = round(1 / uzs_to_rub, 2)
+        # history_uzs.append(rub_to_uzs)
 
-        if len(history_uzs) > max_points:
-           history_uzs = history_uzs[-max_points:] 
+        # if len(history_uzs) > max_points:
+        #    history_uzs = history_uzs[-max_points:] 
 
         usd_to_rub = get_rate_from_url(driver_two)
-        history_usd.append(usd_to_rub)
+        history_usd.append(round(float(usd_to_rub), 2))
 
         if len(history_usd) > max_points:
             history_usd = history_usd[-max_points:]
 
-        os.system('cls' if os.name == 'nt' else 'clear')
+        ax.clear()
+        ax.plot(ts, history_usd)
+        plt.xticks(rotation=45, ha='right')
+        plt.subplots_adjust(bottom=0.30)
+        plt.title('USD/RUB')
+        plt.ylabel('RUB')
+        # os.system('cls' if os.name == 'nt' else 'clear')
 
-        print(f"{Fore.BLUE}RUB/UZS:{Style.RESET_ALL} {Back.YELLOW}{Fore.MAGENTA}{Style.BRIGHT}{rub_to_uzs}{Style.RESET_ALL} so'ms for 1 ruble\t|\t{Fore.GREEN}USD/RUB:{Style.RESET_ALL} {Back.YELLOW}{Fore.MAGENTA}{Style.BRIGHT}{usd_to_rub}{Style.RESET_ALL} rubles for 1 usd")  # Fetch and print the current rate
+        # print(f"{Fore.BLUE}RUB/UZS:{Style.RESET_ALL} {Back.YELLOW}{Fore.MAGENTA}{Style.BRIGHT}{rub_to_uzs}{Style.RESET_ALL} so'ms for 1 ruble\t|\t{Fore.GREEN}USD/RUB:{Style.RESET_ALL} {Back.YELLOW}{Fore.MAGENTA}{Style.BRIGHT}{usd_to_rub}{Style.RESET_ALL} rubles for 1 usd")  # Fetch and print the current rate
 
-        chart = asciichartpy.plot([history_uzs, history_usd], {'height': height, 'offset': 3, 'colors': [asciichartpy.blue, asciichartpy.green]})
-        print(chart)
-        time.sleep(1)  # Sleep for 20 seconds
+        # chart = asciichartpy.plot([history_uzs, history_usd], {'height': height, 'offset': 3, 'colors': [asciichartpy.blue, asciichartpy.green]})
+        # print(chart)
+        # time.sleep(1)  # Sleep for 20 seconds
+
+    ani = animation.FuncAnimation(fig, animate, fargs=(ts, history_usd), interval=1000, cache_frame_data=False)
+    plt.show()
 
 except KeyboardInterrupt:
     print("Program interrupted by user.")
