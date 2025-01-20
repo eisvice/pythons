@@ -120,7 +120,7 @@ def start_scrapping():
             fig,
             create_plot,
             fargs=(time_list, rub_usd_rate_collection, som_rub_rate_collection),
-            interval=1000,
+            interval=1000 * 60 * 3,
             cache_frame_data=False,
         )
 
